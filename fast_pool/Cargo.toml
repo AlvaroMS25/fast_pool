@@ -12,6 +12,7 @@ crossbeam-utils = "0.8.5"
 
 [dependencies.fast_pool-macros]
 git = "https://github.com/AlvaroMS25/fast_pool.git"
+optional = true
 
 [features]
 default = []
