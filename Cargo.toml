@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "fast_pool",
+    "fast_pool-macros"
+]
