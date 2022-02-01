@@ -76,7 +76,7 @@ impl Handle {
     /// the output of the task.
     pub fn spawn<T, R>(&self, task: T) -> JoinHandle<R>
     where
-        T: Task<R>,
+        T: Task<Output = R>,
         R: Sized + Send + 'static,
     {
         let (rx, tx) = ChannelHalf::<R>::new_pair();
@@ -90,7 +90,7 @@ impl Handle {
     /// to retrieve the output when it's not needed.
     pub fn spawn_detached<T, R>(&self, task: T)
     where
-        T: Task<R>,
+        T: Task<Output = R>,
         R: Sized + Send + 'static,
     {
         self.shared

@@ -7,19 +7,21 @@ use crate::{vtable::Vtable, waker::WakerRef, shared::Shared};
 use std::{future::Future, ptr::NonNull, task::Context, sync::Arc};
 
 /// A synchronous task, any type implementing this trait can be ran inside the thread pool.
-pub trait Task<R>: Send + 'static
-where
-    R: Sized + Send + 'static,
+pub trait Task: Send + 'static
 {
-    fn run(self) -> R;
+    type Output: Sized + Send + 'static;
+
+    fn run(self) -> Self::Output;
 }
 
-impl<F, R> Task<R> for F
+impl<F, R> Task for F
 where
     F: FnOnce() -> R + Send + 'static,
     R: Sized + Send + 'static,
 {
-    fn run(self) -> R {
+    type Output = R;
+
+    fn run(self) -> Self::Output {
         self()
     }
 }
@@ -52,7 +54,7 @@ pub struct SyncTask {
 }
 
 impl SyncTask {
-    pub fn new<R>(channel: Option<ChannelHalf<R>>, fun: impl Task<R>) -> Self
+    pub fn new<R>(channel: Option<ChannelHalf<R>>, fun: impl Task<Output = R>) -> Self
     where
         R: Sized + Send + 'static,
     {

@@ -25,7 +25,7 @@ pub use fast_pool_macros::init;
 /// the output of the task.
 pub fn spawn<T, R>(task: T) -> JoinHandle<R>
 where
-    T: Task<R>,
+    T: Task<Output = R>,
     R: Sized + Send + 'static,
 {
     Handle::current().spawn(task)
@@ -36,7 +36,7 @@ where
 /// to create the channel when the output is not needed.
 pub fn spawn_detached<T, R>(task: T)
 where
-    T: Task<R>,
+    T: Task<Output = R>,
     R: Sized + Send + 'static,
 {
     Handle::current().spawn_detached(task)

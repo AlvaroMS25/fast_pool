@@ -46,8 +46,11 @@ fn get_uninitialized() {
 #[test]
 fn run_custom() -> std::io::Result<()> {
     struct Test;
-    impl Task<&'static str> for Test {
+    impl Task for Test {
+        type Output = &'static str;
+        
         fn run(self) -> &'static str {
+            println!("Running test");
             "Test ran!"
         }
     }
