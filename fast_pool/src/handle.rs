@@ -38,6 +38,11 @@ impl Handle {
         crate::context::get_handle()
     }
 
+    /// Gets the handle of the currently running thread pool if it exists.
+    pub fn try_get() -> Option<Self> {
+        crate::context::try_get()
+    }
+
     /// Shuts down the thread pool, waiting for all threads to exit.
     pub fn shutdown(self) {
         crate::context::delete_handle();
