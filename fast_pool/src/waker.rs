@@ -5,13 +5,14 @@ use crate::{
 use std::{
     future::Future,
     marker::PhantomData,
+    mem::ManuallyDrop,
     ptr::NonNull,
     task::{RawWaker, RawWakerVTable, Waker},
 };
 use crate::task::TaskInner;
 
 pub struct WakerRef<'a> {
-    waker: Waker,
+    waker: ManuallyDrop<Waker>,
     _marker: PhantomData<&'a AsyncTask>,
 }
 
@@ -20,7 +21,7 @@ impl<'a> WakerRef<'a> {
         let waker = unsafe { Waker::from_raw(raw_waker(task.ptr)) };
 
         Self {
-            waker,
+            waker: ManuallyDrop::new(waker),
             _marker: PhantomData,
         }
     }
@@ -30,7 +31,12 @@ impl<'a> WakerRef<'a> {
     }
 }
 
-unsafe fn clone(ptr: *const ()) -> RawWaker {
+unsafe fn clone<T>(ptr: *const ()) -> RawWaker
+where
+    T: Future + Send + 'static,
+    T::Output: Send + 'static,
+{
+    (*(ptr as *const TaskInner<T>)).inc_waker();
     let ptr = NonNull::new_unchecked(ptr as *mut Vtable);
     raw_waker(ptr)
 }
@@ -40,6 +46,10 @@ where
     T: Future + Send + 'static,
     T::Output: Send + 'static,
 {
+    if ptr.is_null() {
+        return;
+    }
+
     let task = &*(ptr as *const TaskInner<T>);
 
     if task.shared.should_exit() {
@@ -59,7 +69,15 @@ where
     wake::<T>(ptr);
 }
 
-unsafe fn drop(ptr: *const ()) {
+unsafe fn drop<T>(ptr: *const ())
+where
+    T: Future + Send + 'static,
+    T::Output: Send + 'static,
+{
+    if (ptr as *const TaskInner<T>).is_null() {
+        return;
+    }
+
     let vtable = NonNull::new_unchecked(ptr as *mut Vtable);
 
     ((*vtable.as_ptr()).drop)(vtable)
@@ -75,5 +93,10 @@ where
     T: Future + Send + 'static,
     T::Output: Send + 'static,
 {
-    &RawWakerVTable::new(clone, wake::<T>, wake_by_ref::<T>, drop)
+    &RawWakerVTable::new(
+        clone::<T>,
+        wake::<T>,
+        wake_by_ref::<T>,
+        drop::<T>
+    )
 }

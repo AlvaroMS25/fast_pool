@@ -4,7 +4,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 #[cfg(feature = "async")]
 use crate::{vtable::Vtable, waker::WakerRef, shared::Shared};
 #[cfg(feature = "async")]
-use std::{future::Future, ptr::NonNull, task::Context, sync::Arc};
+use std::{future::Future, ptr::NonNull, task::Context, sync::{Arc, atomic::{AtomicUsize, Ordering}}};
 
 /// A synchronous task, any type implementing this trait can be ran inside the thread pool.
 pub trait Task: Send + 'static
@@ -85,7 +85,27 @@ where
     vtable: Vtable,
     pub state: TaskState<T>,
     pub channel: Option<ChannelHalf<T::Output>>,
-    pub shared: Arc<Shared>
+    pub shared: Arc<Shared>,
+    pub waker_count: AtomicUsize
+}
+
+#[cfg(feature = "async")]
+impl<T> TaskInner<T>
+where
+    T: Future + Send + 'static,
+    T::Output: Send + 'static,
+{
+    pub fn inc_waker(&self) {
+        self.waker_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn dec_waker(&self) {
+        self.waker_count.fetch_sub(1, Ordering::AcqRel);
+    }
+
+    pub fn dealloc(&self) -> bool {
+        self.waker_count.load(Ordering::Acquire) == 0
+    }
 }
 
 #[cfg(feature = "async")]
@@ -107,7 +127,8 @@ impl AsyncTask {
             vtable: Vtable::new::<T>(),
             state: TaskState::Incomplete(fut),
             channel,
-            shared
+            shared,
+            waker_count: AtomicUsize::new(1)
         })) as *mut Vtable;
 
         Self {
@@ -123,6 +144,6 @@ impl AsyncTask {
 
     pub unsafe fn poll(&mut self, cx: &mut Context) {
         let vtable = &*self.ptr.as_ptr();
-        (vtable.poll)(self.ptr, cx)
+        (vtable.poll)(self.ptr, cx);
     }
 }

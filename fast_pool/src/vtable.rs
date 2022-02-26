@@ -14,6 +14,8 @@ where
 {
     let inner = &mut *ptr.cast::<TaskInner<T>>().as_ptr();
 
+    inner.dec_waker();
+
     if let TaskState::Incomplete(fut) = &mut inner.state {
         let res = catch_unwind(AssertUnwindSafe(|| Pin::new_unchecked(fut).poll(cx)));
 
@@ -35,17 +37,18 @@ where
         }
 
         inner.state = TaskState::Completed;
+        drop_task::<T>(ptr);
     }
 }
 
-unsafe fn drop_if_needed<T>(ptr: NonNull<Vtable>)
+unsafe fn drop_task<T>(ptr: NonNull<Vtable>)
 where
     T: Future + Send + 'static,
     T::Output: Send + 'static,
 {
     let inner = &mut *ptr.cast::<TaskInner<T>>().as_ptr();
 
-    if let TaskState::Completed = inner.state {
+    if inner.dealloc() {
         drop(Box::from_raw(ptr.as_ptr() as *mut TaskInner<T>));
     }
 }
@@ -68,7 +71,7 @@ where
         channel.set(Err(Box::new("ThreadPool dropped")))
     }
 
-    drop_if_needed::<T>(ptr);
+    drop(Box::from_raw(ptr.as_ptr() as *mut TaskInner<T>));
 }
 
 pub struct Vtable {
@@ -87,7 +90,7 @@ impl Vtable {
         Self {
             inner: crate::waker::new_vtable::<T>(),
             poll: poll::<T>,
-            drop: drop_if_needed::<T>,
+            drop: drop_task::<T>,
             clean: clean::<T>,
         }
     }
