@@ -51,6 +51,7 @@ where
     }
 
     let task = &*(ptr as *const TaskInner<T>);
+    task.inc_waker();
 
     if task.shared.should_exit() {
         let vtable = NonNull::new_unchecked(ptr as *mut Vtable);
