@@ -66,6 +66,13 @@ where
     T: Future + Send + 'static,
     T::Output: Send + 'static,
 {
+    if ptr.is_null() {
+        return;
+    }
+
+    // As we're not cloning the waker, we have to increase the count.
+    (*(ptr as *const TaskInner<T>)).inc_waker();
+
     wake::<T>(ptr);
 }
 
