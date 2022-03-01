@@ -61,17 +61,6 @@ impl ThreadPool {
     pub fn shutdown(self) {
         self.handle.shutdown()
     }
-
-    #[cfg(feature = "async")]
-    /// Spawns a future and waits synchronously for it to end, returning its value, this is the
-    /// equivalent of calling [wait](JoinHandle::wait) on its handle.
-    pub fn block_on<Fut, R>(&self, fut: Fut) -> R
-    where
-        Fut: Future<Output = R> + Send + Sync + 'static,
-        R: Sized + Send + Sync + 'static,
-    {
-        self.handle.spawn_async(fut).wait().unwrap()
-    }
 }
 
 impl std::ops::Deref for ThreadPool {
