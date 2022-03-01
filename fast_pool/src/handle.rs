@@ -58,11 +58,6 @@ impl Handle {
         while let Some(task) = lock.pop_front() {
             match task {
                 TaskType::Sync(task) => drop(task),
-                #[cfg(feature = "async")]
-                TaskType::Async(task) => {
-                    unsafe { ((*task.ptr.as_ptr()).clean)(task.ptr) };
-                    drop(task)
-                }
             }
         }
     }

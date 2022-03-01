@@ -1,6 +1,4 @@
 use crate::{builder::ThreadPoolBuilder, handle::Handle, shared::Shared, worker::Worker};
-#[cfg(feature = "async")]
-use std::future::Future;
 use std::{collections::VecDeque, sync::Arc};
 
 /// The thread pool used to execute tasks.
