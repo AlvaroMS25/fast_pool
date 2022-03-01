@@ -1,5 +1,4 @@
 use crossbeam_utils::sync::{Parker, Unparker};
-#[cfg(feature = "async")]
 use std::task::{Context, Poll, Waker};
 use std::{cell::UnsafeCell, sync::Arc};
 
@@ -8,7 +7,6 @@ type BoxedError = Box<dyn std::any::Any + Send + 'static>;
 struct ChannelInner<T> {
     unparker: Option<Unparker>,
     data: Option<Result<T, BoxedError>>,
-    #[cfg(feature = "async")]
     waker: Option<Waker>,
 }
 
@@ -17,7 +15,6 @@ impl<T: Send> ChannelInner<T> {
         Self {
             unparker: None,
             data: None,
-            #[cfg(feature = "async")]
             waker: None,
         }
     }
@@ -40,7 +37,6 @@ impl<T: Send + Sized + 'static> ChannelHalf<T> {
         (Self::new(Arc::clone(&inner)), Self::new(inner))
     }
 
-    #[cfg(feature = "async")]
     pub fn set_waker(&self, waker: Waker) {
         // SAFETY: Only the worker thread which is executing the task uses this method, so there is
         // no risk of any data races.
@@ -64,13 +60,11 @@ impl<T: Send + Sized + 'static> ChannelHalf<T> {
             return;
         }
 
-        #[cfg(feature = "async")]
         if let Some(waker) = inner.waker.take() {
             waker.wake();
         }
     }
 
-    #[cfg(feature = "async")]
     pub fn wait_async(&mut self, cx: &mut Context) -> Poll<Result<T, BoxedError>> {
         if let Some(value) = self.try_get() {
             Poll::Ready(value)

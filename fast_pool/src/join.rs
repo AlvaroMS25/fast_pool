@@ -1,5 +1,4 @@
 use crate::channel::ChannelHalf;
-#[cfg(feature = "async")]
 use std::{
     future::Future,
     pin::Pin,
@@ -23,7 +22,6 @@ impl<T: Send + Sized + 'static> JoinHandle<T> {
     }
 }
 
-#[cfg(feature = "async")]
 impl<T: Send + Sized + 'static> Future for JoinHandle<T> {
     type Output = Result<T, Box<dyn std::any::Any + Send + 'static>>;
 

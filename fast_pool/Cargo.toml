@@ -16,9 +16,8 @@ optional = true
 
 [features]
 default = []
-async = []
 macros = ["fast_pool-macros"]
-full = ["async", "macros"]
+full = ["macros"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros", "time"] }

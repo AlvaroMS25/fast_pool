@@ -11,11 +11,6 @@ use std::{
     thread::JoinHandle as StdThreadJoinHandle,
 };
 
-#[cfg(feature = "async")]
-use crate::task::AsyncTask;
-#[cfg(feature = "async")]
-use std::future::Future;
-
 /// A handle used to spawn tasks into the thread pool.
 #[derive(Clone)]
 pub struct Handle {
@@ -95,40 +90,5 @@ impl Handle {
     {
         self.shared
             .schedule(TaskType::Sync(SyncTask::new(None, task)));
-    }
-
-    #[cfg(feature = "async")]
-    /// Spawns a future into the thread pool, returning a handle which can be `.await`ed or waited
-    /// synchronously to retrieve the output value.
-    pub fn spawn_async<Fut, R>(&self, fut: Fut) -> JoinHandle<R>
-    where
-        Fut: Future<Output = R> + Send + 'static,
-        R: Sized + Send + 'static,
-    {
-        let (rx, tx) = ChannelHalf::<R>::new_pair();
-        let task = if cfg!(debug_assertions) && std::mem::size_of::<Fut>() > 2048 {
-            TaskType::Async(AsyncTask::new(Arc::clone(&self.shared), Some(tx), Box::pin(fut)))
-        } else {
-            TaskType::Async(AsyncTask::new(Arc::clone(&self.shared), Some(tx), fut))
-        };
-        self.shared.schedule(task);
-        JoinHandle::new(rx)
-    }
-
-    #[cfg(feature = "async")]
-    /// Spawns a future into the thread pool, but instead of returning a handle to retrieve the
-    /// output, it detaches completely the task, this is useful to avoid the allocation needed to
-    /// allow to retrieve the output when it's not needed.
-    pub fn spawn_async_detached<Fut, R>(&self, fut: Fut)
-    where
-        Fut: Future<Output = R> + Send + 'static,
-        R: Sized + Send + 'static,
-    {
-        let task = if cfg!(debug_assertions) && std::mem::size_of::<Fut>() > 2048 {
-            TaskType::Async(AsyncTask::new(Arc::clone(&self.shared), None, Box::pin(fut)))
-        } else {
-            TaskType::Async(AsyncTask::new(Arc::clone(&self.shared), None, fut))
-        };
-        self.shared.schedule(task);
     }
 }

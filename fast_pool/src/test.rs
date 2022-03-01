@@ -59,34 +59,3 @@ fn run_custom() -> std::io::Result<()> {
     println!("{:?}", pool.spawn(Test).wait());
     Ok(())
 }
-
-#[cfg(feature = "async")]
-#[tokio::test]
-async fn print_future() -> std::io::Result<()> {
-    let pool = ThreadPoolBuilder::new().build()?;
-    let fut = pool.spawn_async(async move {
-        println!("Hello from a task!");
-        "Hello world"
-    });
-    print!("{:?}", fut.await);
-    Ok(())
-}
-
-#[cfg(feature = "async")]
-#[tokio::test]
-async fn tokio_sleep() -> std::io::Result<()> {
-    let pool = ThreadPoolBuilder::new().build()?;
-    let handle = tokio::runtime::Handle::current();
-    let handle = pool.spawn_async(async move {
-        let _guard = handle.enter();
-        println!("Sleeping");
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-        println!("Slept");
-        drop(_guard);
-    });
-
-    if let Err(why) = handle.await {
-        println!("{:#?}", why);
-    }
-    Ok(())
-}

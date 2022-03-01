@@ -6,10 +6,6 @@ mod join;
 mod shared;
 mod task;
 mod threadpool;
-#[cfg(feature = "async")]
-mod vtable;
-#[cfg(feature = "async")]
-mod waker;
 mod worker;
 
 pub use builder::ThreadPoolBuilder;
@@ -40,29 +36,6 @@ where
     R: Sized + Send + 'static,
 {
     Handle::current().spawn_detached(task)
-}
-
-#[cfg(feature = "async")]
-/// Spawns a future into the thread pool, returning a handle which can be `.await`ed or waited
-/// synchronously to retrieve the output value.
-pub fn spawn_async<Fut, R>(fut: Fut) -> JoinHandle<R>
-where
-    Fut: std::future::Future<Output = R> + Send + 'static,
-    R: Sized + Send + 'static,
-{
-    Handle::current().spawn_async(fut)
-}
-
-#[cfg(feature = "async")]
-/// Spawns a future into the thread pool, but instead of returning a handle to retrieve the
-/// output, it detaches completely the task, this is useful to avoid the allocation needed to
-/// allow to retrieve the output when it's not needed.
-pub fn spawn_async_detached<Fut, R>(fut: Fut)
-where
-    Fut: std::future::Future<Output = R> + Send + 'static,
-    R: Sized + Send + 'static,
-{
-    Handle::current().spawn_async_detached(fut)
 }
 
 #[cfg(test)]
