@@ -11,7 +11,7 @@ use std::{
     thread::JoinHandle as StdThreadJoinHandle,
 };
 use std::time::Duration;
-use crate::task::PeriodicalTask;
+use crate::task::PeriodicTask;
 
 /// A handle used to spawn tasks into the thread pool.
 #[derive(Clone)]
@@ -96,10 +96,10 @@ impl Handle {
     /// Creates a new periodic task that will be ran every [every](Duration) time and the number
     /// of times given, if the number of times given is [None](None) the task will run until the
     /// thread pool gets closed.
-    pub fn periodical<F>(&self, fun: F, every: Duration, times: Option<usize>)
+    pub fn periodic<F>(&self, fun: F, every: Duration, times: Option<usize>)
     where
         F: Fn() + Send + 'static
     {
-        self.shared.schedule_periodical(PeriodicalTask::new(fun, every, times));
+        self.shared.schedule_periodic(PeriodicTask::new(fun, every, times));
     }
 }

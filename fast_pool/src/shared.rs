@@ -1,4 +1,4 @@
-use crate::{task::{TaskType, PeriodicalTask}, worker::WorkerAction};
+use crate::{task::{TaskType, PeriodicTask}, worker::WorkerAction};
 use parking_lot::{Condvar, Mutex, MutexGuard};
 use std::{
     collections::VecDeque,
@@ -19,7 +19,7 @@ pub struct Shared {
     /// Whether the workers should stop and exit.
     pub exit: AtomicBool,
     /// Queue of tasks that run periodically.
-    pub periodical_tasks: Mutex<VecDeque<PeriodicalTask>>
+    pub periodical_tasks: Mutex<VecDeque<PeriodicTask>>
 }
 
 impl Shared {
@@ -39,8 +39,8 @@ impl Shared {
 
     fn get_periodical(
         &self,
-        lock: &mut MutexGuard<VecDeque<PeriodicalTask>>
-    ) -> Option<PeriodicalTask>
+        lock: &mut MutexGuard<VecDeque<PeriodicTask>>
+    ) -> Option<PeriodicTask>
     {
         while let Some(task) = lock.pop_front() {
             if task.can_run() {
@@ -108,7 +108,7 @@ impl Shared {
         self.condvar.notify_one();
     }
 
-    pub fn schedule_periodical(&self, task: PeriodicalTask) {
+    pub fn schedule_periodic(&self, task: PeriodicTask) {
         if self.should_exit() {
             panic!("Cannot spawn a task, thread pool exited.");
         }

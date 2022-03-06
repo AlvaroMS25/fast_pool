@@ -42,11 +42,11 @@ where
 /// Creates a new periodic task that will be ran every [every](Duration) time and the number
 /// of times given, if the number of times given is [None](None) the task will run until the
 /// thread pool gets closed.
-pub fn periodical<F>(fun: F, every: Duration, times: Option<usize>)
+pub fn periodic<F>(fun: F, every: Duration, times: Option<usize>)
 where
     F: Fn() + Send + 'static
 {
-    Handle::current().periodical(fun, every, times)
+    Handle::current().periodic(fun, every, times)
 }
 
 #[cfg(test)]

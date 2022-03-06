@@ -54,14 +54,14 @@ impl SyncTask {
     }
 }
 
-pub struct PeriodicalTask {
+pub struct PeriodicTask {
     fun: Box<dyn Fn() + Send + 'static>,
     every: Duration,
     next: Instant,
     times: Option<usize>
 }
 
-impl PeriodicalTask {
+impl PeriodicTask {
     pub fn new<F>(fun: F, every: Duration, times: Option<usize>) -> Self
     where
         F: Fn() + Send + 'static
