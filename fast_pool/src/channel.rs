@@ -4,18 +4,30 @@ use std::{cell::UnsafeCell, sync::Arc};
 
 type BoxedError = Box<dyn std::any::Any + Send + 'static>;
 
+enum Notifier {
+    Unparker(Unparker),
+    Waker(Waker)
+}
+
+impl Notifier {
+    fn notify(self) {
+        match self {
+            Self::Unparker(unparker) => unparker.unpark(),
+            Self::Waker(waker) => waker.wake()
+        }
+    }
+}
+
 struct ChannelInner<T> {
-    unparker: Option<Unparker>,
     data: Option<Result<T, BoxedError>>,
-    waker: Option<Waker>,
+    notifier: Option<Notifier>
 }
 
 impl<T: Send> ChannelInner<T> {
     fn new() -> Self {
         Self {
-            unparker: None,
             data: None,
-            waker: None,
+            notifier: None
         }
     }
 }
@@ -41,7 +53,7 @@ impl<T: Send + Sized + 'static> ChannelHalf<T> {
         // SAFETY: Only the worker thread which is executing the task uses this method, so there is
         // no risk of any data races.
         let inner = unsafe { &mut *self.inner.get() };
-        inner.waker = Some(waker);
+        inner.notifier = Some(Notifier::Waker(waker));
     }
 
     pub fn try_get(&self) -> Option<Result<T, BoxedError>> {
@@ -55,14 +67,7 @@ impl<T: Send + Sized + 'static> ChannelHalf<T> {
         let inner = unsafe { &mut *self.inner.get() };
         inner.data = Some(value);
 
-        if let Some(unparker) = inner.unparker.take() {
-            unparker.unpark();
-            return;
-        }
-
-        if let Some(waker) = inner.waker.take() {
-            waker.wake();
-        }
+        inner.notifier.take().map(Notifier::notify);
     }
 
     pub fn wait_async(&mut self, cx: &mut Context) -> Poll<Result<T, BoxedError>> {
@@ -81,7 +86,7 @@ impl<T: Send + Sized + 'static> ChannelHalf<T> {
             // SAFETY: This method can only be called once as it consumes `self`.
             let inner = unsafe { &mut *self.inner.get() };
             let parker = Parker::new();
-            inner.unparker = Some(parker.unparker().clone());
+            inner.notifier = Some(Notifier::Unparker(parker.unparker().clone()));
 
             // Park the thread so no work is done while waiting.
             parker.park();

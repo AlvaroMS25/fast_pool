@@ -51,11 +51,25 @@ fn run_custom() -> std::io::Result<()> {
         
         fn run(self) -> &'static str {
             println!("Running test");
+            std::thread::sleep(std::time::Duration::from_secs(5));
             "Test ran!"
         }
     }
 
     let pool = ThreadPoolBuilder::new().build()?;
     println!("{:?}", pool.spawn(Test).wait());
+    Ok(())
+}
+
+#[tokio::test]
+async fn wait_async() -> std::io::Result<()> {
+    let pool = ThreadPoolBuilder::new().build()?;
+
+    pool.spawn(|| {
+        std::thread::sleep(std::time::Duration::from_secs(5));
+    }).await.unwrap();
+
+    println!("Done");
+
     Ok(())
 }
