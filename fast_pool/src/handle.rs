@@ -10,6 +10,8 @@ use std::{
     sync::{atomic::Ordering, Arc},
     thread::JoinHandle as StdThreadJoinHandle,
 };
+use std::time::Duration;
+use crate::task::PeriodicalTask;
 
 /// A handle used to spawn tasks into the thread pool.
 #[derive(Clone)]
@@ -54,11 +56,15 @@ impl Handle {
 
     fn clean(&self) {
         let mut lock = self.shared.queue.lock();
-
         while let Some(task) = lock.pop_front() {
             match task {
                 TaskType::Sync(task) => drop(task),
             }
+        }
+
+        let mut lock = self.shared.periodical_tasks.lock();
+        while let Some(task) = lock.pop_front() {
+            drop(task);
         }
     }
 
@@ -85,5 +91,15 @@ impl Handle {
     {
         self.shared
             .schedule(TaskType::Sync(SyncTask::new(None, task)));
+    }
+
+    /// Creates a new periodic task that will be ran every [every](Duration) time and the number
+    /// of times given, if the number of times given is [None](None) the task will run until the
+    /// thread pool gets closed.
+    pub fn periodical<F>(&self, fun: F, every: Duration, times: Option<usize>)
+    where
+        F: Fn() + Send + 'static
+    {
+        self.shared.schedule_periodical(PeriodicalTask::new(fun, every, times));
     }
 }

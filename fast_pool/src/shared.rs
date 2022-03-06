@@ -1,5 +1,5 @@
-use crate::{task::TaskType, worker::WorkerAction};
-use parking_lot::{Condvar, Mutex};
+use crate::{task::{TaskType, PeriodicalTask}, worker::WorkerAction};
+use parking_lot::{Condvar, Mutex, MutexGuard};
 use std::{
     collections::VecDeque,
     sync::{
@@ -18,6 +18,8 @@ pub struct Shared {
     lock: Mutex<()>,
     /// Whether the workers should stop and exit.
     pub exit: AtomicBool,
+    /// Queue of tasks that run periodically.
+    pub periodical_tasks: Mutex<VecDeque<PeriodicalTask>>
 }
 
 impl Shared {
@@ -27,6 +29,7 @@ impl Shared {
             condvar: Condvar::new(),
             lock: Mutex::new(()),
             exit: AtomicBool::new(false),
+            periodical_tasks: Mutex::new(VecDeque::new())
         })
     }
 
@@ -34,8 +37,37 @@ impl Shared {
         self.queue.try_lock().map(|mut q| q.pop_front()).flatten()
     }
 
+    fn get_periodical(
+        &self,
+        lock: &mut MutexGuard<VecDeque<PeriodicalTask>>
+    ) -> Option<PeriodicalTask>
+    {
+        while let Some(task) = lock.pop_front() {
+            if task.can_run() {
+                return Some(task)
+            } else {
+                lock.push_back(task);
+            }
+        }
+
+        None
+    }
+
     pub fn should_exit(&self) -> bool {
         self.exit.load(Ordering::Relaxed)
+    }
+
+    pub fn run_periodical(&self) {
+        if let Some(mut lock) = self.periodical_tasks.try_lock() {
+            if let Some(mut task) = self.get_periodical(&mut lock) {
+                if task.run() {
+                    lock.push_back(task);
+                    if lock.len() > 0 {
+                        self.condvar.notify_one();
+                    }
+                }
+            }
+        }
     }
 
     pub fn wait(&self) -> WorkerAction {
@@ -45,6 +77,9 @@ impl Shared {
             if let Some(task) = self.try_get() {
                 WorkerAction::Run(task)
             } else {
+                // If there are no tasks available, just try to run periodical ones.
+                self.run_periodical();
+
                 let mut lock = self.lock.lock();
                 self.condvar.wait(&mut lock);
                 if self.should_exit() {
@@ -70,6 +105,15 @@ impl Shared {
         }
 
         self.queue.lock().push_back(task);
+        self.condvar.notify_one();
+    }
+
+    pub fn schedule_periodical(&self, task: PeriodicalTask) {
+        if self.should_exit() {
+            panic!("Cannot spawn a task, thread pool exited.");
+        }
+
+        self.periodical_tasks.lock().push_back(task);
         self.condvar.notify_one();
     }
 }

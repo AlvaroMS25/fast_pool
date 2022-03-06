@@ -1,5 +1,6 @@
 use crate::channel::ChannelHalf;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::time::{Duration, Instant};
 
 /// A synchronous task, any type implementing this trait can be ran inside the thread pool.
 pub trait Task: Send + 'static
@@ -50,5 +51,46 @@ impl SyncTask {
                 }
             }),
         }
+    }
+}
+
+pub struct PeriodicalTask {
+    fun: Box<dyn Fn() + Send + 'static>,
+    every: Duration,
+    next: Instant,
+    times: Option<usize>
+}
+
+impl PeriodicalTask {
+    pub fn new<F>(fun: F, every: Duration, times: Option<usize>) -> Self
+    where
+        F: Fn() + Send + 'static
+    {
+        let next = Instant::now() + every;
+
+        Self {
+            fun: Box::new(move || {
+                let _ = catch_unwind(AssertUnwindSafe(|| (fun)()));
+            }),
+            every,
+            next,
+            times
+        }
+    }
+
+    pub fn run(&mut self) -> bool {
+        (self.fun)();
+        self.times.as_mut().map(|t| *t = *t-1);
+
+        if self.times.is_none() || self.times.as_ref().map(|t| *t >= 1).unwrap() {
+            self.next = Instant::now() + self.every;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn can_run(&self) -> bool {
+        Instant::now() > self.next
     }
 }

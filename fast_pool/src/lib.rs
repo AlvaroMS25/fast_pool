@@ -8,6 +8,7 @@ mod task;
 mod threadpool;
 mod worker;
 
+use std::time::Duration;
 pub use builder::ThreadPoolBuilder;
 pub use handle::Handle;
 pub use join::JoinHandle;
@@ -27,7 +28,7 @@ where
     Handle::current().spawn(task)
 }
 
-/// Spawns a new task into the pool, but unlike [`spawn`](Self::spawn), doesn't return a
+/// Spawns a new task into the pool, but unlike [`spawn`](self::spawn), doesn't return a
 /// handle to retrieve the output of the task, this is useful to avoid the allocation needed
 /// to create the channel when the output is not needed.
 pub fn spawn_detached<T, R>(task: T)
@@ -36,6 +37,16 @@ where
     R: Sized + Send + 'static,
 {
     Handle::current().spawn_detached(task)
+}
+
+/// Creates a new periodic task that will be ran every [every](Duration) time and the number
+/// of times given, if the number of times given is [None](None) the task will run until the
+/// thread pool gets closed.
+pub fn periodical<F>(fun: F, every: Duration, times: Option<usize>)
+where
+    F: Fn() + Send + 'static
+{
+    Handle::current().periodical(fun, every, times)
 }
 
 #[cfg(test)]
