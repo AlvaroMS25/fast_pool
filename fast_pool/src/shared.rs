@@ -37,7 +37,7 @@ impl Shared {
         self.queue.try_lock().map(|mut q| q.pop_front()).flatten()
     }
 
-    fn get_periodical(
+    fn get_periodic(
         &self,
         lock: &mut MutexGuard<VecDeque<PeriodicTask>>
     ) -> Option<PeriodicTask>
@@ -59,11 +59,12 @@ impl Shared {
 
     pub fn run_periodical(&self) {
         if let Some(mut lock) = self.periodical_tasks.try_lock() {
-            if let Some(mut task) = self.get_periodical(&mut lock) {
+            println!("Locked");
+            if let Some(mut task) = self.get_periodic(&mut lock) {
                 if task.run() {
                     lock.push_back(task);
                     if lock.len() > 0 {
-                        self.condvar.notify_one();
+                        //self.condvar.notify_one();
                     }
                 }
             }
