@@ -18,8 +18,6 @@ pub struct Shared {
     lock: Mutex<()>,
     /// Whether the workers should stop and exit.
     pub exit: AtomicBool,
-    /// Queue of tasks that run periodically.
-    pub periodic_tasks: Mutex<VecDeque<PeriodicTask>>
 }
 
 impl Shared {
@@ -29,7 +27,6 @@ impl Shared {
             condvar: Condvar::new(),
             lock: Mutex::new(()),
             exit: AtomicBool::new(false),
-            periodic_tasks: Mutex::new(VecDeque::new())
         })
     }
 
@@ -37,31 +34,8 @@ impl Shared {
         self.queue.try_lock().map(|mut q| q.pop_front()).flatten()
     }
 
-    fn get_runnable_periodic<'a>(
-        &self,
-        lock: &'a mut MutexGuard<VecDeque<PeriodicTask>>
-    ) -> impl Iterator<Item = (usize, &'a mut PeriodicTask)>
-    {
-        lock.iter_mut()
-            .enumerate()
-            .filter(|(_, task)| task.can_run())
-    }
-
     pub fn should_exit(&self) -> bool {
         self.exit.load(Ordering::Relaxed)
-    }
-
-    pub fn run_periodical(&self) {
-        if let Some(mut lock) = self.periodic_tasks.try_lock() {
-            println!("Locked");
-            while let Some((id, task)) = self.get_runnable_periodic(&mut lock).next() {
-                println!("Got new");
-                if !task.run() {
-                    //todo: delete task
-                    let _ = id;
-                }
-            }
-        }
     }
 
     pub fn wait(&self) -> WorkerAction {
@@ -71,9 +45,6 @@ impl Shared {
             if let Some(task) = self.try_get() {
                 WorkerAction::Run(task)
             } else {
-                // If there are no tasks available, just try to run periodical ones.
-                self.run_periodical();
-
                 let mut lock = self.lock.lock();
                 self.condvar.wait(&mut lock);
                 if self.should_exit() {
@@ -107,6 +78,5 @@ impl Shared {
             panic!("Cannot spawn a task, thread pool exited.");
         }
 
-        self.periodic_tasks.lock().push_back(task);
     }
 }

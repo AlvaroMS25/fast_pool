@@ -62,10 +62,10 @@ impl Handle {
             }
         }
 
-        let mut lock = self.shared.periodic_tasks.lock();
-        while let Some(task) = lock.pop_front() {
-            drop(task);
-        }
+        /*let mut lock = self.shared.periodic_tasks.lock();
+        while !lock.is_empty() {
+            drop(lock.remove(0));
+        }*/
     }
 
     /// Spawns a new task into the thread pool, returning a handle which can be used to retrieve

@@ -1,6 +1,8 @@
 use crate::channel::ChannelHalf;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+use crate::shared::Shared;
 
 /// A synchronous task, any type implementing this trait can be ran inside the thread pool.
 pub trait Task: Send + 'static
@@ -78,15 +80,16 @@ impl PeriodicTask {
         }
     }
 
-    pub fn run(&mut self) -> bool {
+    pub fn run(mut self, shared: &Shared) {
+        println!("Running task");
         (self.fun)();
         self.times.as_mut().map(|t| *t = *t-1);
 
         if self.times.is_none() || self.times.as_ref().map(|t| *t >= 1).unwrap() {
             self.next = Instant::now() + self.every;
-            true
-        } else {
-            false
+            println!("Rescheduling");
+            shared.schedule_periodic(self);
+            println!("Done");
         }
     }
 
