@@ -37,20 +37,14 @@ impl Shared {
         self.queue.try_lock().map(|mut q| q.pop_front()).flatten()
     }
 
-    fn get_periodic(
+    fn get_runnable_periodic<'a>(
         &self,
-        lock: &mut MutexGuard<VecDeque<PeriodicTask>>
-    ) -> Option<PeriodicTask>
+        lock: &'a mut MutexGuard<VecDeque<PeriodicTask>>
+    ) -> impl Iterator<Item = (usize, &'a mut PeriodicTask)>
     {
-        while let Some(task) = lock.pop_front() {
-            if task.can_run() {
-                return Some(task)
-            } else {
-                lock.push_back(task);
-            }
-        }
-
-        None
+        lock.iter_mut()
+            .enumerate()
+            .filter(|(_, task)| task.can_run())
     }
 
     pub fn should_exit(&self) -> bool {
@@ -60,12 +54,11 @@ impl Shared {
     pub fn run_periodical(&self) {
         if let Some(mut lock) = self.periodic_tasks.try_lock() {
             println!("Locked");
-            if let Some(mut task) = self.get_periodic(&mut lock) {
-                if task.run() {
-                    lock.push_back(task);
-                    if lock.len() > 0 {
-                        //self.condvar.notify_one();
-                    }
+            while let Some((id, task)) = self.get_runnable_periodic(&mut lock).next() {
+                println!("Got new");
+                if !task.run() {
+                    //todo: delete task
+                    let _ = id;
                 }
             }
         }
@@ -115,6 +108,5 @@ impl Shared {
         }
 
         self.periodic_tasks.lock().push_back(task);
-        self.condvar.notify_one();
     }
 }
