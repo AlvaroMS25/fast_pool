@@ -62,7 +62,7 @@ impl Handle {
             }
         }
 
-        let mut lock = self.shared.periodical_tasks.lock();
+        let mut lock = self.shared.periodic_tasks.lock();
         while let Some(task) = lock.pop_front() {
             drop(task);
         }

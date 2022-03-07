@@ -19,7 +19,7 @@ pub struct Shared {
     /// Whether the workers should stop and exit.
     pub exit: AtomicBool,
     /// Queue of tasks that run periodically.
-    pub periodical_tasks: Mutex<VecDeque<PeriodicTask>>
+    pub periodic_tasks: Mutex<VecDeque<PeriodicTask>>
 }
 
 impl Shared {
@@ -29,7 +29,7 @@ impl Shared {
             condvar: Condvar::new(),
             lock: Mutex::new(()),
             exit: AtomicBool::new(false),
-            periodical_tasks: Mutex::new(VecDeque::new())
+            periodic_tasks: Mutex::new(VecDeque::new())
         })
     }
 
@@ -58,7 +58,7 @@ impl Shared {
     }
 
     pub fn run_periodical(&self) {
-        if let Some(mut lock) = self.periodical_tasks.try_lock() {
+        if let Some(mut lock) = self.periodic_tasks.try_lock() {
             println!("Locked");
             if let Some(mut task) = self.get_periodic(&mut lock) {
                 if task.run() {
@@ -114,7 +114,7 @@ impl Shared {
             panic!("Cannot spawn a task, thread pool exited.");
         }
 
-        self.periodical_tasks.lock().push_back(task);
+        self.periodic_tasks.lock().push_back(task);
         self.condvar.notify_one();
     }
 }
