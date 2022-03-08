@@ -42,6 +42,10 @@ pub fn get_timer() -> TimerHandle {
     }).unwrap()
 }
 
+pub fn get_timer_optional() -> Option<TimerHandle> {
+    HANDLE.timer.borrow().clone()
+}
+
 pub fn delete_timer() {
     *HANDLE.timer.borrow_mut() = None;
 }

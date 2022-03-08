@@ -1,5 +1,5 @@
-use crate::{task::{TaskType, PeriodicTask}, worker::WorkerAction};
-use parking_lot::{Condvar, Mutex, MutexGuard};
+use crate::{task::{TaskType}, worker::WorkerAction};
+use parking_lot::{Condvar, Mutex};
 use std::{
     collections::VecDeque,
     sync::{

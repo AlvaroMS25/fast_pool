@@ -52,5 +52,11 @@ where
     Handle::current().periodic(fun, every, times)
 }
 
+pub fn shutdown_timer() {
+    if let Some(handle) = crate::context::get_timer_optional() {
+        handle.shutdown();
+    }
+}
+
 #[cfg(test)]
 mod test;

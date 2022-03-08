@@ -1,9 +1,6 @@
-
-
 use std::time::Duration;
 use crate::task::PeriodicTask;
 use crossbeam_channel::{unbounded, Sender, Receiver};
-use crossbeam_utils::sync::{Parker, Unparker};
 
 pub enum TimerAction {
     Schedule(PeriodicTask),
