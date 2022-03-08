@@ -59,13 +59,9 @@ impl Handle {
         while let Some(task) = lock.pop_front() {
             match task {
                 TaskType::Sync(task) => drop(task),
+                TaskType::Periodic(task) => drop(task)
             }
         }
-
-        /*let mut lock = self.shared.periodic_tasks.lock();
-        while !lock.is_empty() {
-            drop(lock.remove(0));
-        }*/
     }
 
     /// Spawns a new task into the thread pool, returning a handle which can be used to retrieve
@@ -100,6 +96,13 @@ impl Handle {
     where
         F: Fn() + Send + 'static
     {
-        self.shared.schedule_periodic(PeriodicTask::new(fun, every, times));
+        if self.shared.should_exit() {
+            panic!("Cannot spawn a task, thread pool exited.");
+        }
+
+        let task = PeriodicTask::new(Arc::clone(&self.shared), fun, every, times);
+
+        crate::context::get_timer()
+            .schedule(task);
     }
 }

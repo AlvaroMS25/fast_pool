@@ -72,11 +72,4 @@ impl Shared {
         self.queue.lock().push_back(task);
         self.condvar.notify_one();
     }
-
-    pub fn schedule_periodic(&self, task: PeriodicTask) {
-        if self.should_exit() {
-            panic!("Cannot spawn a task, thread pool exited.");
-        }
-
-    }
 }

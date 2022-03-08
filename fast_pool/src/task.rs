@@ -26,12 +26,14 @@ where
 
 pub enum TaskType {
     Sync(SyncTask),
+    Periodic(PeriodicTask)
 }
 
 impl TaskType {
     pub fn run(self) {
         match self {
             Self::Sync(task) => (task.fun)(),
+            Self::Periodic(task) => task.run()
         }
     }
 }
@@ -57,20 +59,22 @@ impl SyncTask {
 }
 
 pub struct PeriodicTask {
+    shared: Arc<Shared>,
     fun: Box<dyn Fn() + Send + 'static>,
     every: Duration,
     next: Instant,
-    times: Option<usize>
+    times: Option<usize>,
 }
 
 impl PeriodicTask {
-    pub fn new<F>(fun: F, every: Duration, times: Option<usize>) -> Self
+    pub fn new<F>(shared: Arc<Shared>, fun: F, every: Duration, times: Option<usize>) -> Self
     where
         F: Fn() + Send + 'static
     {
         let next = Instant::now() + every;
 
         Self {
+            shared,
             fun: Box::new(move || {
                 let _ = catch_unwind(AssertUnwindSafe(|| (fun)()));
             }),
@@ -80,17 +84,27 @@ impl PeriodicTask {
         }
     }
 
-    pub fn run(mut self, shared: &Shared) {
-        println!("Running task");
+    pub fn run(mut self) {
         (self.fun)();
         self.times.as_mut().map(|t| *t = *t-1);
 
         if self.times.is_none() || self.times.as_ref().map(|t| *t >= 1).unwrap() {
             self.next = Instant::now() + self.every;
-            println!("Rescheduling");
-            shared.schedule_periodic(self);
-            println!("Done");
+            self.reschedule();
         }
+    }
+
+    pub fn schedule(self) {
+        if self.shared.should_exit() {
+            drop(self);
+        } else {
+            Arc::clone(&self.shared).schedule(TaskType::Periodic(self));
+        }
+    }
+
+    pub fn reschedule(self) {
+        crate::context::get_timer()
+            .schedule(self);
     }
 
     pub fn can_run(&self) -> bool {
