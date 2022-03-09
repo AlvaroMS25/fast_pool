@@ -98,7 +98,10 @@ impl PeriodicTask {
         if self.shared.should_exit() {
             drop(self);
         } else {
-            Arc::clone(&self.shared).schedule(TaskType::Periodic(self));
+            // SAFETY: As the task is holding the Arc we ensure the pointer is valid, also as we're
+            // not modifying its contents, we avoid any possible data races. This way of scheduling
+            // the task is just a workaround to avoid cloning the Arc every time.
+            unsafe { (&*Arc::as_ptr(&self.shared)).schedule(TaskType::Periodic(self)); }
         }
     }
 
