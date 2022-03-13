@@ -1,10 +1,16 @@
 use std::time::Duration;
 use crate::task::PeriodicTask;
-use crossbeam_channel::{unbounded, Sender, Receiver};
+use crossbeam_channel::{unbounded, Sender, Receiver, RecvTimeoutError};
 
 pub enum TimerAction {
     Schedule(PeriodicTask),
     Abort
+}
+
+enum RecvResult {
+    Abort,
+    Exit,
+    Continue
 }
 
 pub struct Timer {
@@ -60,23 +66,29 @@ impl Timer {
         })
     }
 
-    fn try_recv_timeout(&mut self) -> bool {
+    fn try_recv_timeout(&mut self) -> RecvResult {
         if self.sleep == self.times.len() as u8 {
-            return true;
+            self.sleep = 0;
+            return RecvResult::Exit;
         }
 
-        if let Ok(action) = self.receiver.recv_timeout(Duration::from_millis(self.times[self.sleep as usize])) {
-            if let TimerAction::Schedule(task) = action {
-                self.tasks.push(task);
-                self.sleep = 0;
-                false
-            } else {
-                true
+        match self.receiver.recv_timeout(Duration::from_millis(self.times[self.sleep as usize])) {
+            Ok(action) => {
+                match action {
+                    TimerAction::Schedule(task) => {
+                        self.tasks.push(task);
+                        self.sleep = 0;
+                    },
+                    TimerAction::Abort => return RecvResult::Abort
+                }
+            },
+            Err(err) if matches!(err, RecvTimeoutError::Disconnected) => return RecvResult::Abort,
+            _ => {
+                self.sleep += 1;
             }
-        } else {
-            self.sleep += 1;
-            false
         }
+
+        RecvResult::Continue
     }
 
     fn schedule_available(&mut self) {
@@ -88,10 +100,14 @@ impl Timer {
     fn run(mut self) {
         loop {
             self.schedule_available();
-            if self.try_recv_timeout() && self.tasks.is_empty() {
-                crate::context::delete_timer();
-                return;
+
+            match self.try_recv_timeout() {
+                RecvResult::Abort => break,
+                RecvResult::Exit if self.tasks.is_empty() => break,
+                _ => ()
             }
         }
+
+        crate::context::delete_timer();
     }
 }
